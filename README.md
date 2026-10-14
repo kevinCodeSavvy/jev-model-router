@@ -130,6 +130,16 @@ Each record holds a redacted 200-character summary of the prompt (credentials, l
 
 It follows a prompt through the router: the five cards show today's numbers for each step (Jev rates it, the router escalates it, the shadow check asks Opus, Opus agrees or not, the floor in force), a table gives the last 14 UTC days for every step with the day's floor moves, then agreement by confidence bucket, and the last ten tuning changes. Counts for the first two steps come from per-day counters kept since 0.6.0 and cover prompts where Jev reported a confidence; the rest comes from the shadow log, which keeps the newest 300 records, so older days can be partial.
 
+## Cache-aware switching
+
+A model has its own prompt cache. A turn that moves to a model whose cache is cold re-sends the whole conversation as a cache write instead of a cache read, so a cheaper model can cost more for the turn it starts on. With `cacheAware` on (the default), a main-loop switch made to save money has to cost less than staying, over the next `cacheHorizonTurns` turns (3), with that rebuild counted. Otherwise the router keeps the current model, still sets the effort, and says why in the log: `kept balanced: switching to fast would cost $0.06 more over 3 turns (184k context, cache rebuild $0.15)`.
+
+What it needs: the context size, read from the session's last response, and when each model last served a request, kept by the router. A cache counts as warm for `cacheTtlMinutes` (60) after its last use. Prices are in `hooks/cache.ts` (Haiku 5.5, Sonnet 5.5 and Opus 5.5, as published on 2026-10-06; Haiku's input price rises from $0.10 to $0.50 per million tokens above 100k tokens of prompt). A cache write costs 1.25 times the input price for a 5 minute cache and 2 times for a 1 hour one. Edit `PRICES` when the rates change.
+
+Rules of thumb it follows: a context of `cacheSmallContext` tokens (20,000) or less always switches; an unknown size always switches; a move to a more capable model, such as an unsure turn sent to Opus, is made for quality and is not held back unless `cacheGateUpgrades` is on (the log notes what that turn costs extra); and with no cache warm anywhere, a switch to the cheaper write wins. Subagents are not affected, since they start with their own small context.
+
+It is an estimate: output length is assumed (`cacheOutputTokens`, 1500), the horizon is a guess at how long a switch lasts, and the cache lifetime is assumed rather than read from the API.
+
 ## Auto-tune
 
 With `autoTune` on (the default), the router may move `unsureBelow`, and only that, once per session at start. It reads the shadow log near the floor (0.15 either side), counting only records newer than its last move:
@@ -166,6 +176,12 @@ With a key set, the prompt text leaves the machine and goes to whichever backend
   minDowngradeConfidence: number  bar to spend less (default 0.6)
   unsureBelow:            number  tier confidence under this goes deep (default 0.3, 0 = off)
   autoTune:               boolean let the router tune unsureBelow within guards (default true)
+  cacheAware:             boolean keep the current model when a cheaper one would cost more once its cold cache is counted (default true)
+  cacheSmallContext:      number  context tokens at or under which a switch is always allowed (default 20000)
+  cacheHorizonTurns:      number  turns a switch must save money over (default 3)
+  cacheTtlMinutes:        number  assumed cache lifetime after last use (default 60)
+  cacheOutputTokens:      number  output tokens assumed per turn (default 1500)
+  cacheGateUpgrades:      boolean also hold back moves to a more capable model (default false)
   shadowOpus:             boolean ask Opus in the background and log both answers (default true)
   shadowSampleRate:       number  share of confident prompts also shadowed (default 0.1)
   shadowMaxPerHour:       number  most shadow calls an hour (default 6)

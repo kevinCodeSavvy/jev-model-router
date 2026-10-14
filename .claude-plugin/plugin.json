@@ -1,6 +1,6 @@
 {
   "name": "jev-model-router",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Picks the model and the reasoning effort for each task with TypeSafe's Jev, a System One decision model reached either through TypeSafe's own API or the Vercel AI Gateway. Routes subagent models at agent.spawn and the main loop's effort and model at turn.step, in both directions, falling back to the engine's built-in classifier when no key is set.",
   "author": {
     "name": "Kevin Fong",
@@ -154,6 +154,42 @@
       "title": "Auto-tune the confidence floor",
       "description": "Let the router move unsureBelow one 0.05 step at a time (0.15 to 0.50, at most daily, on 30+ fresh shadow records) and roll it back if escalations spike. Every change is kept in the audit trail",
       "default": true
+    },
+    "cacheAware": {
+      "type": "boolean",
+      "title": "Cache-aware model switching",
+      "description": "Before switching the main loop to a cheaper model, count the cost of re-sending the conversation to a model whose prompt cache is cold, and keep the current model when switching would cost more over the next few turns. Moves up to a more capable model are not held back unless cacheGateUpgrades is on",
+      "default": true
+    },
+    "cacheSmallContext": {
+      "type": "number",
+      "title": "Context size always safe to switch",
+      "description": "At or under this many context tokens a switch is always allowed, since the cache rebuild costs almost nothing",
+      "default": 20000
+    },
+    "cacheHorizonTurns": {
+      "type": "number",
+      "title": "Turns a switch is expected to last",
+      "description": "A switch has to save money over this many turns, the first one included, to go ahead",
+      "default": 3
+    },
+    "cacheTtlMinutes": {
+      "type": "number",
+      "title": "Prompt cache lifetime in minutes",
+      "description": "How long a model's cache is assumed to stay warm after its last use. 5 or less prices a cache write at 1.25 times input, more at 2 times",
+      "default": 60
+    },
+    "cacheOutputTokens": {
+      "type": "number",
+      "title": "Output tokens assumed per turn",
+      "description": "Output is where a cheaper model saves, so the comparison assumes this many output tokens a turn",
+      "default": 1500
+    },
+    "cacheGateUpgrades": {
+      "type": "boolean",
+      "title": "Hold back moves up too",
+      "description": "Apply the same cost test to a switch to a more capable model, such as an unsure turn sent to Opus. Off by default, since those are made for quality",
+      "default": false
     }
   }
 }

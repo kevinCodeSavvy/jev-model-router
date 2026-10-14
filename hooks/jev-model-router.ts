@@ -93,6 +93,8 @@ import {
   shadowRequest,
   wantsShadow,
 } from './shadow.ts'
+import { DEFAULT_CACHE_SETTINGS, judgeSwitch, tierOfModel } from './cache.ts'
+import type { LastUsed } from './cache.ts'
 import { buildDashboard } from './dashboard.ts'
 import {
   appendAudit,
@@ -274,6 +276,20 @@ export const register: Register = (on, options) => {
   // returns to. `policy.unsureBelow` is what runs, and tuning rewrites it.
   const configuredFloor = policy.unsureBelow ?? 0
   const autoTune = flag('autoTune', true)
+
+  // Cache awareness: a main-loop switch made to save money has to cost less
+  // than staying once the new model's cold cache is counted. See cache.ts.
+  const cacheAware = flag('cacheAware', true)
+  const cacheSettings = {
+    smallContext: number('cacheSmallContext', DEFAULT_CACHE_SETTINGS.smallContext),
+    horizonTurns: number('cacheHorizonTurns', DEFAULT_CACHE_SETTINGS.horizonTurns),
+    ttlMinutes: number('cacheTtlMinutes', DEFAULT_CACHE_SETTINGS.ttlMinutes),
+    outputTokens: number('cacheOutputTokens', DEFAULT_CACHE_SETTINGS.outputTokens),
+    gateUpgrades: flag('cacheGateUpgrades', DEFAULT_CACHE_SETTINGS.gateUpgrades),
+  }
+  // Input tokens of the last response, and when each model last served one.
+  let contextTokens: number | null = null
+  const lastUsed: LastUsed = {}
 
   // Store writes go one at a time: two overlapping read-modify-writes of the
   // same key would drop one of them.
@@ -462,12 +478,21 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // How much conversation a model switch would have to re-send.
+  on('session.measure', async ($, e, next) => {
+    const tokens = e.context?.tokens
+    if (typeof tokens === 'number') contextTokens = tokens
+    return next(e)
+  })
+
   on('turn.step', async function* ($, e, next) {
     if (!routeMainLoop || e.agentId) return yield* next(e)
 
     // Every request after the first reuses what the turn settled on, so
     // neither the model nor the effort changes under its own tool loop.
     if (e.index > 0 && e.turnId === appliedTurnId) {
+      const ran = tierOfModel(applied?.model ?? e.model, policy.tiers)
+      if (ran) lastUsed[ran] = await $.clock.now()
       return yield* next(applied ? { ...e, ...applied } : e)
     }
 
@@ -476,11 +501,27 @@ export const register: Register = (on, options) => {
     const change: { model?: string; effort?: Effort } = {}
     // The main loop's `model` is sent to the API as written, so an alias
     // becomes its id here; a subagent's (agent.spawn) may stay an alias.
-    if (routeMainModel && routing.model) change.model = requestModelId(routing.model)
+    let cacheNote = ''
+    if (routeMainModel && routing.model) {
+      const now = await $.clock.now()
+      const from = tierOfModel(e.model, policy.tiers)
+      const to = tierOfModel(routing.model, policy.tiers)
+      const verdict =
+        cacheAware && from && to
+          ? judgeSwitch({ from, to, contextTokens, lastUsed, now }, cacheSettings)
+          : { allow: true, reason: '' }
+      if (verdict.allow) change.model = requestModelId(routing.model)
+      else cacheNote = ` · ${verdict.reason}`
+      if (verdict.allow && verdict.reason && logDecisions) {
+        $.ui.log(`[jev-model-router] cache: ${verdict.reason}`)
+      }
+    }
     if (routeMainEffort && routing.effort) change.effort = routing.effort
 
     appliedTurnId = e.turnId
     applied = Object.keys(change).length > 0 ? change : null
+    const served = tierOfModel(change.model ?? e.model, policy.tiers)
+    if (served) lastUsed[served] = await $.clock.now()
     // A row in the transcript scrolls away; this line stays on screen.
     if (logDecisions) $.ui.status(describeStatus(decision, applied, isUnsure(decision, policy)))
 
@@ -489,7 +530,7 @@ export const register: Register = (on, options) => {
       // made a working mod look like one that never loaded. Say what happened.
       if (logDecisions) {
         const suppressed = routing.model && !routeMainModel ? ' (main-loop model routing off)' : ''
-        $.ui.log(`[jev-model-router] main loop: ${routing.reason}${suppressed}`)
+        $.ui.log(`[jev-model-router] main loop: ${routing.reason}${suppressed}${cacheNote}`)
       }
       return yield* next(e)
     }
@@ -497,7 +538,7 @@ export const register: Register = (on, options) => {
       const what = [change.model, change.effort && `effort ${change.effort}`]
         .filter(Boolean)
         .join(', ')
-      $.ui.log(`[jev-model-router] main loop → ${what}: ${routing.reason}`)
+      $.ui.log(`[jev-model-router] main loop → ${what}: ${routing.reason}${cacheNote}`)
     }
     return yield* next({ ...e, ...change })
   })
