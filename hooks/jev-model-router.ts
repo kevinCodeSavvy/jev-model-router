@@ -97,6 +97,7 @@ import { DEFAULT_CACHE_SETTINGS, judgeSwitch, tierOfModel } from './cache.ts'
 import type { LastUsed } from './cache.ts'
 import { buildDashboard } from './dashboard.ts'
 import { appendSwitch, readSwitches, SWITCH_KEY } from './switchlog.ts'
+import { hintShown, KEY_HINT_KEY, keyHintText } from './keyhint.ts'
 import {
   appendAudit,
   applyEntry,
@@ -326,6 +327,17 @@ export const register: Register = (on, options) => {
       description: "Open a local page with the router's daily stats at each step",
     })
     await tuneAtStart($, configuredFloor, autoTune, logDecisions)
+    // Once, and only for someone with no key: how to add one. Never blocks the session.
+    if (!typesafeKey && !gatewayKey && forced !== 'builtin') {
+      try {
+        if (!hintShown(await $.store.get(KEY_HINT_KEY))) {
+          await $.store.set(KEY_HINT_KEY, true)
+          $.ui.log(keyHintText('jev-model-router@jev-model-router'))
+        }
+      } catch {
+        // a store that cannot be read or written: skip the hint rather than repeat it every session
+      }
+    }
     return next(e)
   })
 

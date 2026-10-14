@@ -244,6 +244,8 @@ Install this version, with its unsure floor, shadow log, auto-tune and dashboard
 
    The key is marked sensitive, so Claude Code keeps it out of `settings.json`. Never paste it into a chat or commit it. Without a key the mod falls back to the built-in classifier and no prompt leaves the machine; with one, the text of each prompt goes to `api.typesafe.ai`, so check that is acceptable before using it on work projects.
 
+   Until a key is set, the first session after install prints this command once in the transcript as a reminder (it never shows again, and not at all if you set a key or `provider` to `builtin`).
+
 4. Optional: other options go in the same way, as one JSON object of single-line strings, for example `{"routeMainModel":"true"}`. `claude plugin configure jev-model-router@jev-model-router` lists every option and whether it is set.
 
 5. Quit and reopen Claude Code, start a new session, and look for `[jev-model-router] ready on typesafe` in the log. `/jev-shadow` and `/jev-dashboard` start empty and fill as you work.
@@ -290,4 +292,4 @@ A mod runs without `node_modules`, so neither `@typesafe-ai/sdk` nor the AI SDK 
 
 ## Credits
 
-Started from the `jev-model-router` template in [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) by Daniel (San) Ávila, used under its MIT license (see `LICENSE`, which keeps the original copyright notice). The unsure floor, Opus shadow log, `/jev-shadow` and `/jev-dashboard` commands, and guarded auto-tune were added on top by Kevin Fong.
+Started from the `jev-model-router` template in [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) by Daniel (San) Ávila, used under its MIT license (see `LICENSE`, which keeps the original copyright notice). The unsure floor, Opus shadow log, `/jev-shadow` and `/jev-dashboard` commands, and guarded auto-tune were added on top by kevinCodeSavvy.
