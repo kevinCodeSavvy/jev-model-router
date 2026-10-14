@@ -12,6 +12,8 @@
  */
 import { countByConfidence, SHADOW_CAP } from './shadow.ts'
 import type { ShadowRecord } from './shadow.ts'
+import { formatContext, summarizeSwitches } from './switchlog.ts'
+import type { SwitchRecord } from './switchlog.ts'
 import { DAY, dayKey, describeEntry, effectiveFloor } from './tune.ts'
 import type { AuditEntry, Stats, TuneState } from './tune.ts'
 
@@ -24,6 +26,8 @@ export interface DashboardInput {
   trail: readonly AuditEntry[]
   stats: Stats
   log: readonly ShadowRecord[]
+  /** Main-loop switch decisions, oldest first. */
+  switches?: readonly SwitchRecord[]
 }
 
 export interface DayRow {
@@ -43,6 +47,8 @@ export interface DayRow {
 }
 
 export const DASHBOARD_DAYS = 14
+/** Switch decisions listed on the page. */
+export const SWITCH_ROWS = 15
 
 /** Text made safe to place inside HTML. */
 export function escapeHtml(text: string): string {
@@ -113,7 +119,7 @@ h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:32px 0 8px}
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13px}
 th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th{font-weight:600;color:var(--dim);font-size:12px}th:first-child,td:first-child{text-align:left}
-tr:last-child td{border-bottom:0}td.z{color:var(--dim)}td.moves{text-align:left;white-space:normal;color:var(--amber)}
+tr:last-child td{border-bottom:0}td.z{color:var(--dim)}td.moves{text-align:left;white-space:normal;color:var(--amber)}td.kept{color:var(--amber);font-weight:600}td.ok{color:var(--blue)}
 .bar{display:inline-block;height:8px;background:var(--bar);border-radius:3px;vertical-align:middle;margin-left:6px}
 .wrap{overflow-x:auto}
 ul{margin:6px 0;padding-left:20px;font-size:13px}li{margin:3px 0}
@@ -177,6 +183,21 @@ export function buildDashboard(input: DashboardInput): string {
       ? '<li>No tuning changes yet.</li>'
       : trail.map((entry) => `<li>${escapeHtml(describeEntry(entry))}</li>`).join('\n')
 
+  const switches = input.switches ?? []
+  const counts = summarizeSwitches(switches)
+  const switchRows = switches
+    .slice(-SWITCH_ROWS)
+    .reverse()
+    .map(
+      (r) =>
+        `<tr><td>${new Date(r.at).toISOString().slice(5, 16).replace('T', ' ')}</td><td>${r.from} → ${r.to}</td><td>${formatContext(
+          r.context,
+        )}</td><td class="${r.allowed ? 'ok' : 'kept'}">${r.allowed ? 'switched' : 'kept ' + r.from}</td><td class="moves">${escapeHtml(
+          r.reason || 'cache check off',
+        )}</td></tr>`,
+    )
+    .join('\n')
+
   const generated = new Date(input.now).toISOString().slice(0, 16).replace('T', ' ')
 
   return `<!doctype html>
@@ -211,6 +232,13 @@ ${dayTable}
 ${buckets || '<tr><td colspan="5">No shadow records yet.</td></tr>'}
 </table></div>
 
+<h2>Main-loop switch decisions</h2>
+<p class="sub">${switches.length === 0 ? 'None recorded yet.' : `${counts.allowed} switched, ${counts.kept} kept on the current model, newest ${Math.min(SWITCH_ROWS, switches.length)} shown. Times UTC.`}</p>
+<div class="wrap"><table>
+<tr><th>When</th><th>Move</th><th>Context</th><th>Result</th><th>Why</th></tr>
+${switchRows || '<tr><td colspan="5">No main-loop switch has been judged yet.</td></tr>'}
+</table></div>
+
 <h2>Auto-tune audit trail</h2>
 <ul>
 ${trailList}
@@ -220,6 +248,7 @@ ${trailList}
 <ul>
 <li>Counts for step 1 and 2 start when version 0.6.0 is running, and only cover prompts where Jev reported a confidence.</li>
 <li>Steps 3 and 4 come from the shadow log, which keeps the newest ${SHADOW_CAP} records, so older days can be partial. Opus is asked about every unsure prompt (up to the hourly cap) and a sample of the rest.</li>
+<li>Switch decisions are recorded from version 0.8.1; "kept" means the cache check judged the cheaper model dearer once its cold cache was counted.</li>
 <li>Opus's answer is a second opinion, not proof a cheaper model would have failed.</li>
 </ul>
 </main></body></html>

@@ -19,12 +19,16 @@ const answer = (choice: 'fast' | 'balanced') =>
     },
   })
 
-function world(on: On) {
+function world(on: On, stored: Map<string, unknown> = new Map()) {
   const logs: string[] = []
   const sent: string[] = []
   const jev = { choice: 'fast' as 'fast' | 'balanced' }
   mock.clock(on, { now: NOW })
-  mock.store(on)
+  on('store.get', ($, e) => ({ value: stored.get(e.key) }))
+  on('store.set', ($, e) => {
+    stored.set(e.key, e.value)
+    return { value: undefined }
+  })
   on('ui.log', ($, e) => {
     logs.push(e.text)
     return { value: undefined }
@@ -96,5 +100,26 @@ describe('cache-aware main-loop switching', () => {
     await $.session.start(session)
     await turn($, 't1', 'claude-sonnet-5-5', 184_000)
     expect(w.sent[0]).toContain('haiku')
+  })
+
+  test('each judged switch is recorded with its context, tiers and result', { options }, async ($, on) => {
+    const stored = new Map<string, unknown>()
+    const w = world(on, stored)
+    await $.session.start(session)
+    await warmSonnet($, w.jev)
+    await turn($, 't2', 'claude-sonnet-5-5', 184_000)
+    const log = stored.get('switch-log') as { from: string; to: string; context: number; allowed: boolean; reason: string }[]
+    const last = log[log.length - 1]
+    expect(last).toEqual(expect.objectContaining({ from: 'balanced', to: 'fast', context: 184_000, allowed: false }))
+    expect(last?.reason).toContain('kept balanced')
+  })
+
+  test('a turn that stays on its model records nothing', { options }, async ($, on) => {
+    const stored = new Map<string, unknown>()
+    const w = world(on, stored)
+    await $.session.start(session)
+    w.jev.choice = 'balanced'
+    await turn($, 't1', 'claude-sonnet-5-5', 50_000)
+    expect(stored.get('switch-log')).toBeUndefined()
   })
 })

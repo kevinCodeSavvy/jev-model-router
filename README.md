@@ -138,6 +138,8 @@ What it needs: the context size, read from the session's last response, and when
 
 Rules of thumb it follows: a context of `cacheSmallContext` tokens (20,000) or less always switches; an unknown size always switches; a move to a more capable model, such as an unsure turn sent to Opus, is made for quality and is not held back unless `cacheGateUpgrades` is on (the log notes what that turn costs extra); and with no cache warm anywhere, a switch to the cheaper write wins. Subagents are not affected, since they start with their own small context.
 
+Every judged switch (the router wanted a different model than the session's) is recorded in `$.store` under `switch-log` (newest 100): when, the two tiers, the context size, whether it switched or kept the current model, and the sentence above. `/jev-dashboard` lists the newest 15 under "Main-loop switch decisions". No prompt text is kept. Recorded from 0.8.1.
+
 It is an estimate: output length is assumed (`cacheOutputTokens`, 1500), the horizon is a guess at how long a switch lasts, and the cache lifetime is assumed rather than read from the API.
 
 ## Auto-tune

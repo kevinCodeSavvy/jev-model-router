@@ -96,6 +96,7 @@ import {
 import { DEFAULT_CACHE_SETTINGS, judgeSwitch, tierOfModel } from './cache.ts'
 import type { LastUsed } from './cache.ts'
 import { buildDashboard } from './dashboard.ts'
+import { appendSwitch, readSwitches, SWITCH_KEY } from './switchlog.ts'
 import {
   appendAudit,
   applyEntry,
@@ -194,6 +195,7 @@ async function showDashboard(
     trail: readAudit(await $.store.get(TUNE_AUDIT_KEY)),
     stats: readStats(await $.store.get(TUNE_STATS_KEY)),
     log: readLog(await $.store.get(SHADOW_KEY)),
+    switches: readSwitches(await $.store.get(SWITCH_KEY)),
   })
 
   const home = await $.process
@@ -510,6 +512,12 @@ export const register: Register = (on, options) => {
         cacheAware && from && to
           ? judgeSwitch({ from, to, contextTokens, lastUsed, now }, cacheSettings)
           : { allow: true, reason: '' }
+      if (from && to && from !== to) {
+        const record = { at: now, from, to, context: contextTokens, allowed: verdict.allow, reason: verdict.reason }
+        void enqueue(async () => {
+          await $.store.set(SWITCH_KEY, appendSwitch(await $.store.get(SWITCH_KEY), record))
+        }).catch(() => undefined)
+      }
       if (verdict.allow) change.model = requestModelId(routing.model)
       else cacheNote = ` · ${verdict.reason}`
       if (verdict.allow && verdict.reason && logDecisions) {
