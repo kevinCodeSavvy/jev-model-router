@@ -482,7 +482,7 @@ export const register: Register = (on, options) => {
     appliedTurnId = e.turnId
     applied = Object.keys(change).length > 0 ? change : null
     // A row in the transcript scrolls away; this line stays on screen.
-    if (logDecisions) $.ui.status(describeStatus(decision, applied))
+    if (logDecisions) $.ui.status(describeStatus(decision, applied, isUnsure(decision, policy)))
 
     if (!applied) {
       // A turn left alone is the common case, and it used to be silent, which

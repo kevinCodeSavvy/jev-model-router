@@ -373,6 +373,12 @@ test('the status line distinguishes a change from a deliberate no-change', () =>
   )
   expect(describeStatus(decision, null)).toBe('jev · fast 0.87 · unchanged')
   expect(describeStatus(null, null)).toBe('jev · no answer')
+  // An unsure turn is tagged last, so a reader of the older format still parses the rest.
+  expect(describeStatus(decision, { model: 'opus', effort: 'high' }, true)).toBe(
+    'jev · fast 0.87 → opus/high · unsure',
+  )
+  expect(describeStatus(decision, null, true)).toBe('jev · fast 0.87 · unchanged · unsure')
+  expect(describeStatus(null, null, true)).toBe('jev · no answer')
 })
 
 // `turn.step`'s `model` goes to the API as written, so a family alias has to

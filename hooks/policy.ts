@@ -535,10 +535,13 @@ export function describeDecision(decision: Decision | null, ms: number | null): 
 export function describeStatus(
   decision: Decision | null,
   change: { model?: string; effort?: Effort } | null,
+  unsure = false,
 ): string {
   if (!decision) return 'jev · no answer'
   const asked = `${decision.tier} ${reported(decision.confidence)}`
-  if (!change) return `jev · ${asked} · unchanged`
+  // A trailing tag, so a reader of the older format still parses the rest.
+  const tag = unsure ? ' · unsure' : ''
+  if (!change) return `jev · ${asked} · unchanged${tag}`
   const to = [change.model, change.effort].filter(Boolean).join('/')
-  return `jev · ${asked} → ${to}`
+  return `jev · ${asked} → ${to}${tag}`
 }
