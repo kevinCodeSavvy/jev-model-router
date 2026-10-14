@@ -196,7 +196,45 @@ loaded: `"jev-model-router@skills-dir"` when auto-loaded from `.claude/skills/`
 wrong key every option stays at its default, and the `ready on` line reports
 `no key set`.
 
+## Setup
+
+Install this version, with its unsure floor, shadow log, auto-tune and dashboard, from its repository.
+
+1. Clone it (the repository is private, so git needs access to it):
+
+   ```sh
+   git clone https://github.com/kevinCodeSavvy/jev-model-router.git ~/claude-mods/jev-model-router
+   ```
+
+2. Add the folder as a marketplace and install from it:
+
+   ```sh
+   claude plugin marketplace add ~/claude-mods/jev-model-router
+   claude plugin install jev-model-router@jev-model-router
+   ```
+
+   With the repository's access in place, one line does both:
+   `/plugin install jev-model-router --marketplace kevinCodeSavvy/jev-model-router`
+
+3. Set the TypeSafe API key without printing it. Run this in your own terminal; the prompt hides what you paste:
+
+   ```sh
+   printf 'TypeSafe API key (hidden): '; read -rs K; echo
+   printf '{"typesafeApiKey":"%s"}' "$K" | claude plugin configure jev-model-router@jev-model-router --values-stdin
+   unset K
+   ```
+
+   The key is marked sensitive, so Claude Code keeps it out of `settings.json`. Never paste it into a chat or commit it. Without a key the mod falls back to the built-in classifier and no prompt leaves the machine; with one, the text of each prompt goes to `api.typesafe.ai`, so check that is acceptable before using it on work projects.
+
+4. Optional: other options go in the same way, as one JSON object of single-line strings, for example `{"routeMainModel":"true"}`. `claude plugin configure jev-model-router@jev-model-router` lists every option and whether it is set.
+
+5. Quit and reopen Claude Code, start a new session, and look for `[jev-model-router] ready on typesafe` in the log. `/jev-shadow` and `/jev-dashboard` start empty and fill as you work.
+
+To update later: `git pull` in the clone, then `claude plugin update jev-model-router@jev-model-router`, then restart.
+
 ## Install
+
+> This section installs the original template by Daniel (San) Ávila, not this version. For this version use [Setup](#setup) above.
 
 ```sh
 npx claude-code-templates@latest --mod productivity/jev-model-router
@@ -231,3 +269,7 @@ bun test cli-tool/components/mods/productivity/jev-model-router/tests
 **Requirements.** Mods are on by default in Claude Code 2.1.287+. Typed against Anthropic's declarations: https://github.com/anthropics/claude-code/tree/main/mods
 
 A mod runs without `node_modules`, so neither `@typesafe-ai/sdk` nor the AI SDK is available here: both backends are spoken to over HTTP through `$.http.fetch`. The TypeSafe wire shape was read from `@typesafe-ai/sdk` v0.6.0; the Gateway's, which is `experimental` in the AI SDK (`experimental_evaluate`, 7.0.105+) and not documented publicly, from `@ai-sdk/gateway` v4.0.86 and `@ai-sdk/provider` v4.0.17. Either may change.
+
+## Credits
+
+Started from the `jev-model-router` template in [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) by Daniel (San) Ávila, used under its MIT license (see `LICENSE`, which keeps the original copyright notice). The unsure floor, Opus shadow log, `/jev-shadow` and `/jev-dashboard` commands, and guarded auto-tune were added on top by Kevin Fong.

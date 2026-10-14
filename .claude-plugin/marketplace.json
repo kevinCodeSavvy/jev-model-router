@@ -1,0 +1,15 @@
+{
+  "name": "jev-model-router",
+  "description": "Kevin Fong's jev-model-router mod, installable straight from its repository",
+  "owner": {
+    "name": "Kevin Fong",
+    "url": "https://github.com/kevinCodeSavvy"
+  },
+  "plugins": [
+    {
+      "name": "jev-model-router",
+      "source": "./",
+      "description": "Routes subagent models and main-loop effort per task using TypeSafe's Jev (or the built-in classifier with no key), with an Opus shadow log, guarded auto-tune and a local dashboard"
+    }
+  ]
+}
