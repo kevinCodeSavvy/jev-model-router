@@ -1,0 +1,7 @@
+# Written by Claude Code when it loads the mod; regenerated per version.
+.claude-plugin/types/
+tsconfig.json
+
+# Tooling and OS noise.
+node_modules/
+.DS_Store
