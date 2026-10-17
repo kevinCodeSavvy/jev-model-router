@@ -10,7 +10,7 @@
  */
 import { countByConfidence, SHADOW_CAP } from './shadow.ts'
 import type { ShadowRecord } from './shadow.ts'
-import { summarizeSwitches } from './switchlog.ts'
+import { formatContext, summarizeSwitches } from './switchlog.ts'
 import type { SwitchRecord } from './switchlog.ts'
 import { DAY, dayKey, describeEntry, effectiveFloor } from './tune.ts'
 import type { AuditEntry, Stats, TuneState } from './tune.ts'
@@ -309,7 +309,7 @@ export function buildDashboard(input: DashboardInput): string {
     .reverse()
     .map(
       (r) =>
-        `<tr><td>${new Date(r.at).toISOString().slice(5, 16).replace('T', ' ')}</td><td>${r.from} → ${r.to}</td><td class="${
+        `<tr><td>${new Date(r.at).toISOString().slice(5, 16).replace('T', ' ')}</td><td>${r.from} → ${r.to}</td><td>${formatContext(r.context)}</td><td class="${
           r.allowed ? 'ok' : 'kept'
         }">${r.allowed ? 'switched' : 'kept ' + r.from}</td><td class="moves">${escapeHtml(r.reason || 'cache check off')}</td></tr>`,
     )
@@ -385,8 +385,8 @@ ${dayTable || '<tr><td colspan="6">No activity yet.</td></tr>'}
 <summary>Times the router changed your model (${counts.allowed} switched, ${counts.kept} kept)</summary>
 <p class="sub">${switches.length === 0 ? 'None recorded yet.' : `Newest ${Math.min(SWITCH_ROWS, switches.length)} shown. "Kept" means the router stayed on the current model because switching would have cost more, since the new model would have to re-read the whole chat from scratch.`}</p>
 <div class="wrap"><table>
-<tr><th>When (UTC)</th><th>Move</th><th>Result</th><th>Why</th></tr>
-${switchRows || '<tr><td colspan="4">No main-loop switch has been judged yet.</td></tr>'}
+<tr><th>When (UTC)</th><th>Move</th><th>Chat size</th><th>Result</th><th>Why</th></tr>
+${switchRows || '<tr><td colspan="5">No main-loop switch has been judged yet.</td></tr>'}
 </table></div>
 </details>
 

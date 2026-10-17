@@ -60,8 +60,8 @@ test('the dashboard lists decisions newest first with context and result', () =>
     rec({ at: 100 * DAY + 3_600_000, context: 12_000, allowed: true, reason: 'context small (12k)' }),
     rec({ at: 100 * DAY + 5 * 3_600_000 }),
   ])
-  expect(html).toContain('Main-loop switch decisions')
-  expect(html).toContain('1 switched, 1 kept')
+  expect(html).toContain('Times the router changed your model')
+  expect(html).toContain('(1 switched, 1 kept)')
   expect(html).toContain('184k')
   expect(html).toContain('kept balanced')
   expect(html).toContain('context small (12k)')
@@ -76,7 +76,7 @@ test('with none recorded the dashboard says so, and escapes the reason', () => {
 test('only the newest 15 are listed', () => {
   const many = Array.from({ length: 20 }, (_, i) => rec({ at: 100 * DAY + i * 60_000, context: (i + 1) * 1000 }))
   const html = page(many)
-  expect(html).toContain('newest 15 shown')
+  expect(html).toContain('Newest 15 shown')
   expect(html).toContain('>20k<')
   expect(html).not.toContain('>5k<')
 })

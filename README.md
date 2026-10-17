@@ -138,7 +138,7 @@ Then, in order:
 - "Does Jev know when it is right?": checked prompts grouped by Jev's stated confidence, in bands such as "Under 30% sure" and "90% or more sure", each with the share Opus agreed with and a bar, and one sentence on whether "sure" means right.
 - "Every day": the last 14 UTC days with prompts, those Jev was not sure about, those double-checked, the share Opus agreed with, and any change to the line. Days with no activity are hidden.
 - "Does Jev learn from this?" (from 0.9.2): says plainly that it does not, that only the router's own "not sure" line adjusts itself, and what that line last did and why.
-- A glossary, open by default. Collapsed: model switches (the newest 15), changes to the "not sure" line (the last ten) and a short small print.
+- A glossary, open by default. Collapsed: model switches (the newest 15, with the chat size at each), changes to the "not sure" line (the last ten) and a short small print.
 
 Prompt counts come from per-day counters kept since 0.6.0 and cover prompts where Jev reported a confidence; the rest comes from the shadow log, which keeps the newest 300 records, so older days can be partial. "Opus agreed" is a second opinion, not proof that a cheaper model would have failed.
 
@@ -258,7 +258,7 @@ To update later: `/plugin update jev-model-router@cockpit`, then restart.
 ## Tests
 
 ```sh
-bun test cli-tool/components/mods/productivity/jev-model-router/tests
+claude plugin test plugins/jev-model-router
 ```
 
 **Requirements.** Mods are on by default in Claude Code 2.1.287+. Typed against Anthropic's declarations: https://github.com/anthropics/claude-code/tree/main/mods
