@@ -102,7 +102,7 @@ to load. Check them in this order:
    project is trusted: it is repository content, so an untrusted folder's
    `.claude/` is not read at all, and `claude -p` never asks. Open `claude`
    interactively in the folder and accept the trust prompt, or name the
-   plugin explicitly with `--plugin-dir` (see Install). `claude --debug`
+   plugin explicitly with `--plugin-dir` (see Setup). `claude --debug`
    settles it: a loaded module prints
    `hooks module jev-model-router@skills-dir loaded (worker, …); events: prompt.submit,turn.step,agent.spawn`
    (`@inline` when loaded with `--plugin-dir`); `Found N plugins` without it
@@ -128,7 +128,19 @@ Each record holds a redacted 200-character summary of the prompt (credentials, l
 
 `/jev-dashboard` writes one self-contained HTML page (inline CSS, no scripts, no network, no prompt text) to `~/.claude/jev-model-router/dashboard.html` and opens it in the default browser (`open` on macOS, `xdg-open` on Linux). `/jev-dashboard no-open` only writes it. The page is a snapshot; run the command again to refresh.
 
-It follows a prompt through the router: the five cards show today's numbers for each step (Jev rates it, the router escalates it, the shadow check asks Opus, Opus agrees or not, the floor in force), a table gives the last 14 UTC days for every step with the day's floor moves, then agreement by confidence bucket, and the last ten tuning changes. Counts for the first two steps come from per-day counters kept since 0.6.0 and cover prompts where Jev reported a confidence; the rest comes from the shadow log, which keeps the newest 300 records, so older days can be partial.
+The page opens with a short "What is this?" box, then a banner that answers "How is Jev doing?": Jev and Opus agree more often now, less often, about as often as before, or "too early to tell". It compares the older half of the checked prompts with the newer half (from 0.9.0) and needs 20 or more checked prompts and a 5-point change to call it. The wording is deliberate: more agreement is not proof that Jev learned anything, because Jev is TypeSafe's model and this router never trains it.
+
+Below that, a line graph plots the share of checked prompts where Opus agreed with Jev for each day with checks, oldest on the left, so a rising line means Jev and Opus agree more often (from 0.9.1; it needs two days with checks, and hovering a point shows that day's counts).
+
+Then, in order:
+
+- "What happened today": plain sentences with the counts, and where the "not sure" line sits now.
+- "Does Jev know when it is right?": checked prompts grouped by Jev's stated confidence, in bands such as "Under 30% sure" and "90% or more sure", each with the share Opus agreed with and a bar, and one sentence on whether "sure" means right.
+- "Every day": the last 14 UTC days with prompts, those Jev was not sure about, those double-checked, the share Opus agreed with, and any change to the line. Days with no activity are hidden.
+- "Does Jev learn from this?" (from 0.9.2): says plainly that it does not, that only the router's own "not sure" line adjusts itself, and what that line last did and why.
+- A glossary, open by default. Collapsed: model switches (the newest 15), changes to the "not sure" line (the last ten) and a short small print.
+
+Prompt counts come from per-day counters kept since 0.6.0 and cover prompts where Jev reported a confidence; the rest comes from the shadow log, which keeps the newest 300 records, so older days can be partial. "Opus agreed" is a second opinion, not proof that a cheaper model would have failed.
 
 ## Cache-aware switching
 
@@ -138,7 +150,7 @@ What it needs: the context size, read from the session's last response, and when
 
 Rules of thumb it follows: a context of `cacheSmallContext` tokens (20,000) or less always switches; an unknown size always switches; a move to a more capable model, such as an unsure turn sent to Opus, is made for quality and is not held back unless `cacheGateUpgrades` is on (the log notes what that turn costs extra); and with no cache warm anywhere, a switch to the cheaper write wins. Subagents are not affected, since they start with their own small context.
 
-Every judged switch (the router wanted a different model than the session's) is recorded in `$.store` under `switch-log` (newest 100): when, the two tiers, the context size, whether it switched or kept the current model, and the sentence above. `/jev-dashboard` lists the newest 15 under "Main-loop switch decisions". No prompt text is kept. Recorded from 0.8.1.
+Every judged switch (the router wanted a different model than the session's) is recorded in `$.store` under `switch-log` (newest 100): when, the two tiers, the context size, whether it switched or kept the current model, and the sentence above. `/jev-dashboard` lists the newest 15 in its collapsed "Model switches" section. No prompt text is kept. Recorded from 0.8.1.
 
 It is an estimate: output length is assumed (`cacheOutputTokens`, 1500), the horizon is a guess at how long a switch lasts, and the cache lifetime is assumed rather than read from the API.
 
@@ -216,69 +228,32 @@ wrong key every option stays at its default, and the `ready on` line reports
 
 ## Setup
 
-Install this version, with its unsure floor, shadow log, auto-tune and dashboard, from its repository.
+This copy ships in the [cockpit](../../README.md) marketplace together with Deck, which draws the router's decisions. From Claude Code:
 
-1. Clone it (the repository is private, so git needs access to it):
+```
+/plugin marketplace add kevinCodeSavvy/cockpit
+/plugin install jev-model-router@cockpit
+```
 
-   ```sh
-   git clone https://github.com/kevinCodeSavvy/jev-model-router.git ~/claude-mods/jev-model-router
-   ```
+Or install everything at once with `/plugin install cockpit@cockpit`.
 
-2. Add the folder as a marketplace and install from it:
-
-   ```sh
-   claude plugin marketplace add ~/claude-mods/jev-model-router
-   claude plugin install jev-model-router@jev-model-router
-   ```
-
-   With the repository's access in place, one line does both:
-   `/plugin install jev-model-router --marketplace kevinCodeSavvy/jev-model-router`
-
-3. Set the TypeSafe API key without printing it. Run this in your own terminal; the prompt hides what you paste:
+1. Set the TypeSafe API key without printing it. Run this in your own terminal; the prompt hides what you paste:
 
    ```sh
    printf 'TypeSafe API key (hidden): '; read -rs K; echo
-   printf '{"typesafeApiKey":"%s"}' "$K" | claude plugin configure jev-model-router@jev-model-router --values-stdin
+   printf '{"typesafeApiKey":"%s"}' "$K" | claude plugin configure jev-model-router@cockpit --values-stdin
    unset K
    ```
 
    The key is marked sensitive, so Claude Code keeps it out of `settings.json`. Never paste it into a chat or commit it. Without a key the mod falls back to the built-in classifier and no prompt leaves the machine; with one, the text of each prompt goes to `api.typesafe.ai`, so check that is acceptable before using it on work projects.
 
+2. Optional: other options go in the same way, as one JSON object of single-line strings, for example `{"routeMainModel":"true"}`. `claude plugin configure jev-model-router@cockpit` lists every option and whether it is set.
+
    Until a key is set, the first session after install prints this command once in the transcript as a reminder (it never shows again, and not at all if you set a key or `provider` to `builtin`).
 
-4. Optional: other options go in the same way, as one JSON object of single-line strings, for example `{"routeMainModel":"true"}`. `claude plugin configure jev-model-router@jev-model-router` lists every option and whether it is set.
+3. Quit and reopen Claude Code, start a new session, and look for `[jev-model-router] ready on typesafe` in the log. `/jev-shadow` and `/jev-dashboard` start empty and fill as you work.
 
-5. Quit and reopen Claude Code, start a new session, and look for `[jev-model-router] ready on typesafe` in the log. `/jev-shadow` and `/jev-dashboard` start empty and fill as you work.
-
-To update later: `git pull` in the clone, then `claude plugin update jev-model-router@jev-model-router`, then restart.
-
-## Install
-
-> This section installs the original template by Daniel (San) Ávila, not this version. For this version use [Setup](#setup) above.
-
-```sh
-npx claude-code-templates@latest --mod productivity/jev-model-router
-claude
-```
-
-`--mod` writes the plugin to `.claude/skills/jev-model-router/` in the project,
-and Claude Code auto-loads it as `jev-model-router@skills-dir` **in a trusted
-project**: a folder's `.claude/` is repository content and is not read until
-you accept the trust prompt on the first interactive `claude` there (`-p`
-never asks, so a headless run in a fresh folder never sees it). The options
-then go under the `"jev-model-router@skills-dir"` key in `pluginConfigs` (see
-Options).
-
-For one session with hot reload, or in a folder you do not want to trust,
-name it on the command line instead — it loads as `jev-model-router@inline`
-and reads options from the `"jev-model-router"` key:
-
-```sh
-claude --plugin-dir .claude/skills/jev-model-router
-```
-
-Either way, `claude plugin validate .claude/skills/jev-model-router` prints
-every event it hooks and every `$` call it makes.
+To update later: `/plugin update jev-model-router@cockpit`, then restart.
 
 ## Tests
 
