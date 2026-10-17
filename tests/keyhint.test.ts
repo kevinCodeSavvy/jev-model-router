@@ -32,6 +32,9 @@ describe('key hint', () => {
     expect(hint).toHaveLength(1)
     expect(hint[0]).toContain('typesafeApiKey')
     expect(hint[0]).toContain('read -rs')
+    // `claude plugin configure` wants name@marketplace, which depends on the install, so the command looks it up.
+    expect(hint[0]).toContain('claude plugin list --json')
+    expect(hint[0]).not.toMatch(/jev-model-router@(cockpit|kevin-mods|jev-model-router)/)
     expect(stored.get('key-hint-shown')).toBe(true)
   })
 

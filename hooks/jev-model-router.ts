@@ -332,7 +332,7 @@ export const register: Register = (on, options) => {
       try {
         if (!hintShown(await $.store.get(KEY_HINT_KEY))) {
           await $.store.set(KEY_HINT_KEY, true)
-          $.ui.log(keyHintText('jev-model-router@jev-model-router'))
+          $.ui.log(keyHintText())
         }
       } catch {
         // a store that cannot be read or written: skip the hint rather than repeat it every session
